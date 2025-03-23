@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JumbleRush</title>
+  <style>
+    :root {
+      --main-bg-color: #f7f7f7;
+      --text-color: #111;
+      --border-color: #ddd;
+      --hover-color: #f1f1f1;
+      --button-bg: #111;
+      --button-text: #fff;
+      --button-disabled: #777;
+      --timer-warning: #c00;
+      --overlay-bg: rgba(0, 0, 0, 0.7);
+    }
+
+    body {
+      font-family: "Times New Roman", serif;
+      background-color: var(--main-bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+    }
+
+    .container {
+      max-width: 500px;
+      width: 100%;
+      padding: 20px;
+      border: 1px solid var(--border-color);
+      background-color: white;
+      position: relative;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      letter-spacing: -1px;
+    }
+
+    .subtitle {
+      font-style: italic;
+      margin-bottom: 1.5rem;
+      font-size: 1.1rem;
+    }
+
+    .challenge-number {
+      font-size: 0.9rem;
+      font-weight: bold;
+      margin-bottom: 1rem;
+    }
+
+    .timer {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-bottom: 1.5rem;
+    }
+
+    .timer.warning {
+      color: var(--timer-warning);
+    }
+
+    .letters-container {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 2rem;
+    }
+
+    .letter {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 50px;
+      height: 50px;
+      border: 2px solid var(--text-color);
+      font-size: 1.8rem;
+      font-weight: bold;
+      cursor: default;
+      transition: transform 0.2s;
+    }
+
+    .letter.shuffling {
+      animation: pulse 0.5s;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+
+    .game-input {
+      display: flex;
+      margin-bottom: 2rem;
+      width: 100%;
+    }
+
+    input[type="text"] {
+      flex-grow: 1;
+      padding: 12px;
+      font-size: 1.2rem;
+      border: 1px solid var(--border-color);
+      font-family: "Times New Roman", serif;
+      text-transform: uppercase;
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: var(--text-color);
+    }
+
+    button {
+      padding: 12px 24px;
+      background-color: var(--button-bg);
+      color: var(--button-text);
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: "Times New Roman", serif;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: #333;
+    }
+
+    button:disabled {
+      background-color: var(--button-disabled);
+      cursor: not-allowed;
+    }
+
+    .message {
+      min-height: 24px;
+      margin-bottom: 1rem;
+      font-weight: bold;
+    }
+
+    .error {
+      color: var(--timer-warning);
+    }
+
+    .result-container {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      border-top: 1px solid var(--border-color);
+      padding-top: 2rem;
+      margin-top: 1rem;
+    }
+
+    .result-title {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-bottom: 1rem;
+    }
+
+    .result-stats {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+    }
+
+    .share-result {
+      margin-top: 1rem;
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      width: 100%;
+      text-align: center;
+      font-family: monospace;
+      background-color: var(--main-bg-color);
+    }
+
+    .share-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 1rem;
+      justify-content: center;
+    }
+
+    .rules-section {
+      margin-top: 2rem;
+      text-align: left;
+      font-size: 0.9rem;
+      border-top: 1px solid var(--border-color);
+      padding-top: 1rem;
+    }
+
+    .rules-toggle {
+      background: none;
+      border: none;
+      color: var(--text-color);
+      text-decoration: underline;
+      cursor: pointer;
+      padding: 0;
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+
+    .rules-content {
+      display: none;
+    }
+
+    .rules-content.visible {
+      display: block;
+    }
+
+    .play-again {
+      margin-top: 1.5rem;
+    }
+
+    footer {
+      margin-top: 2rem;
+      font-size: 0.8rem;
+      color: #777;
+    }
+
+    /* Welcome overlay styles */
+    .welcome-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--overlay-bg);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .welcome-dialog {
+      background-color: white;
+      padding: 30px;
+      max-width: 500px;
+      width: 90%;
+      border-radius: 5px;
+      text-align: center;
+    }
+
+    .welcome-title {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .welcome-subtitle {
+      font-style: italic;
+      margin-bottom: 1.5rem;
+    }
+
+    .welcome-rules {
+      text-align: left;
+      margin-bottom: 1.5rem;
+    }
+
+    .start-button {
+      font-size: 1.2rem;
+      padding: 12px 36px;
+    }
+
+    /* Initially hide the game content */
+    .game-content {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Welcome Overlay -->
+  <div class="welcome-overlay" id="welcome-overlay">
+    <div class="welcome-dialog">
+      <h2 class="welcome-title">JumbleRush</h2>
+      <div class="welcome-subtitle">Daily Word Challenge</div>
+      
+      <div class="welcome-rules">
+        <h3>How to Play:</h3>
+        <ul>
+          <li><strong>Unscramble the letters</strong> to form a valid English word</li>
+          <li>You have <strong>30 seconds</strong> to solve the puzzle</li>
+          <li>Letters shuffle every <strong>5 seconds</strong></li>
+          <li>Each wrong guess costs you a <strong>3-second penalty</strong></li>
+          <li>You must use <strong>all letters</strong> in your answer</li>
+        </ul>
+      </div>
+      
+      <button class="start-button" id="start-game-btn">Start Game</button>
+    </div>
+  </div>
+
+  <!-- Main Game Container -->
+  <div class="container">
+    <div class="game-content" id="game-content">
+      <h1>JumbleRush</h1>
+      <div class="subtitle">Daily Word Challenge</div>
+      
+      <div class="challenge-number" id="challenge-number">Challenge #1</div>
+      
+      <div class="timer" id="timer">30</div>
+      
+      <div class="letters-container" id="letters-container">
+        <!-- Letters will be inserted here -->
+      </div>
+      
+      <div class="game-input">
+        <input type="text" id="word-input" placeholder="Type your answer..." autocomplete="off">
+        <button id="submit-btn">Submit</button>
+      </div>
+      
+      <div class="message" id="message"></div>
+      
+      <div class="result-container" id="result-container">
+        <div class="result-title" id="result-title"></div>
+        
+        <div class="result-stats">
+          <div class="stat">
+            <div class="stat-value" id="time-value">--</div>
+            <div class="stat-label">Time</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="word-value">--</div>
+            <div class="stat-label">Word</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="penalties-value">--</div>
+            <div class="stat-label">Penalties</div>
+          </div>
+        </div>
+        
+        <div class="share-result" id="share-result"></div>
+        
+        <div class="share-buttons">
+          <button id="copy-btn">Copy Result</button>
+        </div>
+        
+        <button class="play-again" id="play-again-btn">Play Tomorrow's Challenge</button>
+      </div>
+      
+      <div class="rules-section">
+        <button class="rules-toggle" id="rules-toggle">Show Rules</button>
+        <div class="rules-content" id="rules-content">
+          <h3>How to Play:</h3>
+          <ul>
+            <li><strong>Unscramble the letters</strong> to form a valid English word</li>
+            <li>You have <strong>30 seconds</strong> to solve the puzzle</li>
+            <li>Letters shuffle every <strong>5 seconds</strong></li>
+            <li>Each wrong guess costs you a <strong>3-second penalty</strong></li>
+            <li>You must use <strong>all letters</strong> in your answer</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <footer>
+    JumbleRush &copy; 2025 - New challenge daily
+  </footer>
+
+  <script>
+    // List of 6+ letter words for the game
+    const wordList = [
+      "COMPLEX", "BIZARRE", "WHISKEY", "JUMBLED", "QUIZZED", "VIBRANT", 
+      "WALTZING", "JACKPOT", "ABRUPTLY", "FRIZZLED", "RHYTHMIC", "VEXINGLY",
+      "HYPNOTIC", "OXIDIZED", "PANDEMIC", "JUKEBOX", "MYSTIQUE", "ZEPHYRS",
+      "QUANTUM", "FLUMMOX", "GAZEBO", "FIXATION", "VORTEX", "PYJAMAS",
+      "BOOKWORM", "HAUNTING", "FRACTURE", "DILEMMA", "SYNDROME", "WHIPLASH",
+      "KLEPTOMANIAC", "JUXTAPOSE", "ZEALOUSLY", "FEVERISH", "QUAGMIRE"
+    ];
+    
+    // Dictionary for word validation (simplified for MVP)
+    const dictionary = new Set([
+      ...wordList,
+      "WORLD", "HELLO", "DANCE", "APPLE", "PHONE", "CHAIR", "TABLE", "WATER", 
+      "EARTH", "MUSIC", "PIZZA", "BEACH", "MOVIE", "PARTY", "PLANT", "GHOST",
+      // Add more valid English words here
+    ]);
+    
+    // Game state
+    let gameActive = false; // Changed to false initially
+    let timeLeft = 30;
+    let shuffleInterval;
+    let timerInterval;
+    let nextShuffleTime = 5;
+    let originalWord = "";
+    let scrambledLetters = [];
+    let penaltyCount = 0;
+    let challengeNumber = 0;
+    
+    // DOM elements
+    const welcomeOverlay = document.getElementById("welcome-overlay");
+    const startGameBtn = document.getElementById("start-game-btn");
+    const gameContent = document.getElementById("game-content");
+    const lettersContainer = document.getElementById("letters-container");
+    const timerElement = document.getElementById("timer");
+    const wordInput = document.getElementById("word-input");
+    const submitBtn = document.getElementById("submit-btn");
+    const messageElement = document.getElementById("message");
+    const resultContainer = document.getElementById("result-container");
+    const resultTitle = document.getElementById("result-title");
+    const timeValue = document.getElementById("time-value");
+    const wordValue = document.getElementById("word-value");
+    const penaltiesValue = document.getElementById("penalties-value");
+    const shareResult = document.getElementById("share-result");
+    const copyBtn = document.getElementById("copy-btn");
+    const playAgainBtn = document.getElementById("play-again-btn");
+    const rulesToggle = document.getElementById("rules-toggle");
+    const rulesContent = document.getElementById("rules-content");
+    const challengeNumberElement = document.getElementById("challenge-number");
+    
+    // Initialize game
+    function initGame() {
+      gameActive = true;
+      timeLeft = 30;
+      nextShuffleTime = 5;
+      penaltyCount = 0;
+      messageElement.textContent = "";
+      messageElement.classList.remove("error");
+      resultContainer.style.display = "none";
+      
+      // Set challenge number based on date
+      const today = new Date();
+      challengeNumber = Math.floor((today - new Date(today.getFullYear(), 0, 1)) / 86400000) + 1;
+      challengeNumberElement.textContent = `Challenge #${challengeNumber}`;
+      
+      // Select word using seeded random based on date
+      const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+      const randomIndex = seededRandom(seed, 0, wordList.length - 1);
+      originalWord = wordList[randomIndex];
+      
+      // Scramble letters and display
+      scrambledLetters = scrambleWord(originalWord);
+      displayLetters();
+      
+      // Start timers
+      startTimers();
+      
+      // Enable input
+      wordInput.value = "";
+      wordInput.disabled = false;
+      submitBtn.disabled = false;
+      wordInput.focus();
+    }
+    
+    // Function to handle starting the game
+    function startGame() {
+      // Hide welcome overlay
+      welcomeOverlay.style.display = "none";
+      
+      // Show game content
+      gameContent.style.display = "block";
+      
+      // Initialize the game
+      initGame();
+    }
+    
+    // Seeded random number generator
+    function seededRandom(seed, min, max) {
+      const x = Math.sin(seed++) * 10000;
+      const rand = x - Math.floor(x);
+      return Math.floor(rand * (max - min + 1)) + min;
+    }
+    
+    // Scramble word
+    function scrambleWord(word) {
+      const letters = word.split("");
+      for (let i = letters.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [letters[i], letters[j]] = [letters[j], letters[i]];
+      }
+      return letters;
+    }
+    
+    // Display letters
+    function displayLetters() {
+      lettersContainer.innerHTML = "";
+      scrambledLetters.forEach(letter => {
+        const letterElement = document.createElement("div");
+        letterElement.className = "letter";
+        letterElement.textContent = letter;
+        lettersContainer.appendChild(letterElement);
+      });
+    }
+    
+    // Animate letter shuffle
+    function animateLetterShuffle() {
+      const letterElements = document.querySelectorAll(".letter");
+      letterElements.forEach(el => {
+        el.classList.add("shuffling");
+        setTimeout(() => {
+          el.classList.remove("shuffling");
+        }, 500);
+      });
+    }
+    
+    // Start game timers
+    function startTimers() {
+      // Main countdown timer
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        nextShuffleTime--;
+        
+        // Update timer display
+        timerElement.textContent = timeLeft;
+        if (timeLeft <= 10) {
+          timerElement.classList.add("warning");
+        }
+        
+        // Shuffle letters every 5 seconds
+        if (nextShuffleTime <= 0) {
+          scrambledLetters = scrambleWord(originalWord);
+          displayLetters();
+          animateLetterShuffle();
+          nextShuffleTime = 5;
+        }
+        
+        // Game over when time runs out
+        if (timeLeft <= 0) {
+          endGame(false);
+        }
+      }, 1000);
+    }
+    
+    // Submit guess
+    function submitGuess() {
+      if (!gameActive) return;
+      
+      const guess = wordInput.value.trim().toUpperCase();
+      
+      // Validate guess
+      if (guess.length !== originalWord.length) {
+        showMessage(`Use all ${originalWord.length} letters!`, true);
+        applyPenalty();
+        return;
+      }
+      
+      // Check if it's a valid word
+      if (!isValidWord(guess)) {
+        showMessage("Not a valid English word!", true);
+        applyPenalty();
+        return;
+      }
+      
+      // Check if correct
+      if (isCorrectWord(guess)) {
+        endGame(true);
+      } else {
+        showMessage("Incorrect! Try again.", true);
+        applyPenalty();
+      }
+      
+      wordInput.value = "";
+    }
+    
+    // Validate word against dictionary
+    function isValidWord(word) {
+      return dictionary.has(word);
+    }
+    
+    // Check if word matches the original unscrambled word
+    function isCorrectWord(word) {
+      return word === originalWord;
+    }
+    
+    // Show message
+    function showMessage(text, isError = false) {
+      messageElement.textContent = text;
+      if (isError) {
+        messageElement.classList.add("error");
+      } else {
+        messageElement.classList.remove("error");
+      }
+    }
+    
+    // Apply penalty for wrong guess
+    function applyPenalty() {
+      penaltyCount++;
+      timeLeft = Math.max(1, timeLeft - 3); // Ensure at least 1 second remains
+      timerElement.textContent = timeLeft;
+    }
+    
+    // End game
+    function endGame(isWin) {
+      // Stop timers
+      clearInterval(timerInterval);
+      clearInterval(shuffleInterval);
+      
+      // Update game state
+      gameActive = false;
+      wordInput.disabled = true;
+      submitBtn.disabled = true;
+      
+      // Show result
+      displayResult(isWin);
+    }
+    
+    // Display game result
+    function displayResult(isWin) {
+      resultContainer.style.display = "flex";
+      
+      if (isWin) {
+        resultTitle.textContent = "Puzzle Solved!";
+        const timeSpent = 30 - timeLeft;
+        timeValue.textContent = timeSpent + "s";
+      } else {
+        resultTitle.textContent = "Time's Up!";
+        timeValue.textContent = "30s";
+      }
+      
+      wordValue.textContent = originalWord;
+      penaltiesValue.textContent = penaltyCount;
+      
+      // Create sharable result
+      const shareText = isWin 
+        ? `JumbleRush #${challengeNumber} 🕐 Solved in ${30 - timeLeft}s! 🔥 Can you beat my time? Play here: [link]`
+        : `JumbleRush #${challengeNumber} ⏳ Time's up! ❌ I got JUMBLED today 😵‍💫 Try it here: [link]`;
+      
+      shareResult.textContent = shareText;
+    }
+    
+    // Copy result to clipboard
+    function copyResult() {
+      navigator.clipboard.writeText(shareResult.textContent)
+        .then(() => {
+          copyBtn.textContent = "Copied!";
+          setTimeout(() => {
+            copyBtn.textContent = "Copy Result";
+          }, 2000);
+        });
+    }
+    
+    // Toggle rules visibility
+    function toggleRules() {
+      const isVisible = rulesContent.classList.toggle("visible");
+      rulesToggle.textContent = isVisible ? "Hide Rules" : "Show Rules";
+    }
+    
+    // Event listeners
+    startGameBtn.addEventListener("click", startGame);
+    submitBtn.addEventListener("click", submitGuess);
+    wordInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        submitGuess();
+      }
+    });
+    copyBtn.addEventListener("click", copyResult);
+    playAgainBtn.addEventListener("click", () => {
+      // In a real app, we would disable this button until tomorrow
+      alert("Come back tomorrow for a new challenge!");
+    });
+    rulesToggle.addEventListener("click", toggleRules);
+    
+    // Do NOT start game automatically - wait for user to click the start button
+  </script>
+</body>
+</html>
