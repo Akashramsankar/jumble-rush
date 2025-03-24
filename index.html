@@ -308,6 +308,13 @@
       padding: 12px 36px;
     }
 
+    .hint-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 0.5rem;
+  }
+
     /* Initially hide the game content */
     .game-content {
       display: none;
@@ -325,11 +332,16 @@
         <h3>How to Play:</h3>
         <ul>
           <li><strong>Unscramble the letters</strong> to form a valid English word</li>
-          <li>You have <strong>30 seconds</strong> to solve the puzzle</li>
+          <li>You have <strong>45 seconds</strong> to solve the puzzle</li>
           <li>Letters shuffle every <strong>5 seconds</strong></li>
           <li>Each wrong guess costs you a <strong>3-second penalty</strong></li>
           <li>You must use <strong>all letters</strong> in your answer</li>
-          <li>You can use <strong>one hint</strong> (costs 5 seconds)</li>
+          <li>You can use <strong>two hints</strong>:
+            <ul>
+              <li>See the first letter (costs 5 seconds)</li>
+              <li>Get +10 extra seconds</li>
+            </ul>
+          </li>
         </ul>
       </div>
       
@@ -357,7 +369,10 @@
       </div>
       
       <div class="hint-section">
-        <button id="hint-btn" class="hint-btn">Get Hint</button>
+        <div class="hint-buttons">
+          <button id="hint-letter-btn" class="hint-btn">Get First Letter</button>
+          <button id="hint-time-btn" class="hint-btn">Get Extra Time (+10s)</button>
+        </div>
         <div id="hint-container" class="hint-container">
           <div id="hint-content" class="hint-content"></div>
         </div>
@@ -402,11 +417,16 @@
           <h3>How to Play:</h3>
           <ul>
             <li><strong>Unscramble the letters</strong> to form a valid English word</li>
-            <li>You have <strong>30 seconds</strong> to solve the puzzle</li>
+            <li>You have <strong>45 seconds</strong> to solve the puzzle</li>
             <li>Letters shuffle every <strong>5 seconds</strong></li>
             <li>Each wrong guess costs you a <strong>3-second penalty</strong></li>
             <li>You must use <strong>all letters</strong> in your answer</li>
-            <li>You can use <strong>one hint</strong> (costs 5 seconds)</li>
+            <li>You can use <strong>two hints</strong>:
+              <ul>
+                <li>See the first letter (costs 5 seconds)</li>
+                <li>Get +10 extra seconds</li>
+              </ul>
+            </li>
           </ul>
         </div>
       </div>
@@ -427,6 +447,26 @@
       "BOOKWORM", "HAUNTING", "FRACTURE", "DILEMMA", "SYNDROME", "WHIPLASH",
       "KLEPTOMANIAC", "JUXTAPOSE", "ZEALOUSLY", "FEVERISH", "QUAGMIRE"
     ];
+    // Split the wordList into easier and harder words
+    const easyWordList = [
+  "WORLD", "HELLO", "DANCE", "APPLE", "PHONE", "CHAIR", "TABLE", "WATER", 
+  "EARTH", "MUSIC", "PIZZA", "BEACH", "MOVIE", "PARTY", "PLANT", "GHOST",
+  "GLOBE", "SMILE", "BREAD", "CLOUD", "FLAME", "STONE", "DREAM", "GRASS",
+  "PROUD", "QUICK", "STEAM", "TOWER", "VIRUS", "BLADE", "CRAFT", "JUICE",
+  "PAINT", "SHIRT", "FRUIT", "STORM", "CLOCK", "BRAIN", "CREAM", "DRUNK",
+  "FLUTE", "HABIT", "PROUD", "ROUGH", "JUICE", "SPICE", "FROST", "OLIVE",
+  "FANCY", "GRASP", "BLOOM", "TREND", "TRACK", "SMOKE", "CRUST", "SPARE",
+  "PLEAD", "UNITY", "VOWEL", "YOUTH", "WHALE", "ZEBRA", "QUEST", "XEROX"
+];
+
+    const hardWordList = [
+  "COMPLEX", "BIZARRE", "WHISKEY", "JUMBLED", "QUIZZED", "VIBRANT", 
+  "WALTZING", "JACKPOT", "ABRUPTLY", "FRIZZLED", "RHYTHMIC", "VEXINGLY",
+  "HYPNOTIC", "OXIDIZED", "PANDEMIC", "JUKEBOX", "MYSTIQUE", "ZEPHYRS",
+  "QUANTUM", "FLUMMOX", "GAZEBO", "FIXATION", "VORTEX", "PYJAMAS",
+  "BOOKWORM", "HAUNTING", "FRACTURE", "DILEMMA", "SYNDROME", "WHIPLASH",
+  "KLEPTOMANIAC", "JUXTAPOSE", "ZEALOUSLY", "FEVERISH", "QUAGMIRE"
+];
     
     // Dictionary for word validation (simplified for MVP)
     const dictionary = new Set([
@@ -448,6 +488,10 @@
     let challengeNumber = 0;
     let hintUsed = false;
     let hintTimeDeduction = 5; // seconds deducted for using a hint
+    let hintLetterUsed = false;
+    let hintTimeUsed = false;
+    const hintLetterDeduction = 5; // seconds deducted for letter hint
+    const hintTimeBonus = 10; // seconds added for time hint
     
     // DOM elements
     const welcomeOverlay = document.getElementById("welcome-overlay");
@@ -476,54 +520,53 @@
     
     // Initialize game
     function initGame() {
-      gameActive = true;
-      timeLeft = 30;
-      nextShuffleTime = 5;
-      penaltyCount = 0;
-      hintUsed = false;
-      messageElement.textContent = "";
-      messageElement.classList.remove("error");
-      resultContainer.style.display = "none";
-      
-      // Reset hint button and container
-      hintBtn.disabled = false;
-      hintBtn.textContent = "Get Hint";
-      hintContainer.style.display = "none";
-      hintContent.textContent = "";
-      
-      // Set challenge number based on date
-      const today = new Date();
-      challengeNumber = Math.floor((today - new Date(today.getFullYear(), 0, 1)) / 86400000) + 1;
-      challengeNumberElement.textContent = `Challenge #${challengeNumber}`;
-      
-      // Select word using seeded random based on date, avoiding repeated words
-      let attempts = 0;
-      const maxAttempts = 10; // Prevent infinite loops
-      let selectedWord;
-      const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
-      
-      do {
-        const randomIndex = seededRandom(seed + attempts, 0, wordList.length - 1);
-        selectedWord = wordList[randomIndex];
-        attempts++;
-      } while (hasWordBeenUsed(selectedWord) && attempts < maxAttempts);
-      
-      originalWord = selectedWord;
-      markWordAsUsed(originalWord);
-      
-      // Scramble letters and display
-      scrambledLetters = scrambleWord(originalWord);
-      displayLetters();
-      
-      // Start timers
-      startTimers();
-      
-      // Enable input
-      wordInput.value = "";
-      wordInput.disabled = false;
-      submitBtn.disabled = false;
-      wordInput.focus();
-    }
+  gameActive = true;
+  timeLeft = 45; // Changed from 30 to 45 seconds
+  nextShuffleTime = 5;
+  penaltyCount = 0;
+  hintLetterUsed = false;
+  hintTimeUsed = false;
+  messageElement.textContent = "";
+  messageElement.classList.remove("error");
+  resultContainer.style.display = "none";
+  
+  // Reset hint buttons and container
+  document.getElementById("hint-letter-btn").disabled = false;
+  document.getElementById("hint-letter-btn").textContent = "Get First Letter";
+  document.getElementById("hint-time-btn").disabled = false;
+  document.getElementById("hint-time-btn").textContent = "Get Extra Time (+10s)";
+  hintContainer.style.display = "none";
+  hintContent.textContent = "";
+  
+  // Set challenge number based on date
+  const today = new Date();
+  const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  
+  // Use the date as a consistent seed to get the same word every time on the same day
+  challengeNumber = Math.floor((startOfDay - new Date(today.getFullYear(), 0, 1)) / 86400000) + 1;
+  challengeNumberElement.textContent = `Challenge #${challengeNumber}`;
+  
+  // Choose word list based on challenge number
+  const currentWordList = challengeNumber <= 90 ? easyWordList : hardWordList;
+  
+  // Get a deterministic word for today using the date as seed
+  const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+  const randomIndex = deterministicRandom(seed, 0, currentWordList.length - 1);
+  originalWord = currentWordList[randomIndex];
+  
+  // Scramble letters and display (use the seed for consistent daily experience)
+  scrambledLetters = deterministicScramble(originalWord, seed);
+  displayLetters();
+  
+  // Start timers
+  startTimers();
+  
+  // Enable input
+  wordInput.value = "";
+  wordInput.disabled = false;
+  submitBtn.disabled = false;
+  wordInput.focus();
+}
     
     // Function to handle starting the game
     function startGame() {
@@ -603,6 +646,24 @@
         lettersContainer.appendChild(letterElement);
       });
     }
+
+    function deterministicRandom(seed, min, max) {
+  // Simple but deterministic pseudo-random function
+  const x = Math.sin(seed) * 10000;
+  const rand = x - Math.floor(x);
+  return Math.floor(rand * (max - min + 1)) + min;
+}
+
+function deterministicScramble(word, seed) {
+  const letters = word.split("");
+  
+  // Use Fisher-Yates shuffle with deterministic random
+  for (let i = letters.length - 1; i > 0; i--) {
+    const j = deterministicRandom(seed + i, 0, i);
+    [letters[i], letters[j]] = [letters[j], letters[i]];
+  }
+  return letters;
+}
     
     // Animate letter shuffle
     function animateLetterShuffle() {
@@ -614,6 +675,44 @@
         }, 500);
       });
     }
+
+    function getLetterHint() {
+  if (hintLetterUsed || !gameActive) return;
+  
+  // Apply time penalty for using a hint
+  timeLeft = Math.max(1, timeLeft - hintLetterDeduction);
+  timerElement.textContent = timeLeft;
+  
+  hintLetterUsed = true;
+  document.getElementById("hint-letter-btn").disabled = true;
+  document.getElementById("hint-letter-btn").textContent = "Letter Hint Used";
+  
+  // Show the first letter as the hint
+  const hintText = `The word begins with "${originalWord[0]}"`;
+  
+  // Display the hint
+  hintContainer.style.display = "block";
+  hintContent.textContent = hintText;
+}
+
+function getTimeHint() {
+  if (hintTimeUsed || !gameActive) return;
+  
+  // Add time bonus
+  timeLeft = Math.min(45, timeLeft + hintTimeBonus);
+  timerElement.textContent = timeLeft;
+  
+  hintTimeUsed = true;
+  document.getElementById("hint-time-btn").disabled = true;
+  document.getElementById("hint-time-btn").textContent = "Time Hint Used";
+  
+  // Show the time bonus message
+  const hintText = `+10 seconds added to your time!`;
+  
+  // Display the hint
+  hintContainer.style.display = "block";
+  hintContent.textContent = hintText;
+}
     
     // Start game timers
     function startTimers() {
@@ -719,31 +818,47 @@
     
     // Display game result
     function displayResult(isWin) {
-      resultContainer.style.display = "flex";
-      
-      if (isWin) {
-        resultTitle.textContent = "Puzzle Solved!";
-        const timeSpent = 30 - timeLeft;
-        timeValue.textContent = timeSpent + "s";
-      } else {
-        resultTitle.textContent = "Time's Up!";
-        timeValue.textContent = "30s";
-      }
-      
-      wordValue.textContent = originalWord;
-      penaltiesValue.textContent = penaltyCount;
-      hintUsedValue.textContent = hintUsed ? "Yes" : "No";
-      
-      // Update the shareText to include hint information
-      const hintText = hintUsed ? 'with hint' : 'without hint';
-      
-      // Create sharable result
-      const shareText = isWin 
-        ? `JumbleRush #${challengeNumber} 🕐 Solved in ${30 - timeLeft}s ${hintText}! 🔥 Can you beat my time? Play here: https://akashramsankar.github.io/jumble-rush/`
-        : `JumbleRush #${challengeNumber} ⏳ Time's up! ❌ I got JUMBLED today 😵‍💫 Try it here: https://akashramsankar.github.io/jumble-rush/`;
-      
-      shareResult.textContent = shareText;
-    }
+  resultContainer.style.display = "flex";
+  
+  if (isWin) {
+    resultTitle.textContent = "Puzzle Solved!";
+    const timeSpent = 45 - timeLeft;
+    timeValue.textContent = timeSpent + "s";
+  } else {
+    resultTitle.textContent = "Time's Up!";
+    timeValue.textContent = "45s";
+  }
+  
+  wordValue.textContent = originalWord;
+  penaltiesValue.textContent = penaltyCount;
+  
+  // Update hint display - show both hint types
+  let hintStatus = "None";
+  if (hintLetterUsed && hintTimeUsed) {
+    hintStatus = "Both";
+  } else if (hintLetterUsed) {
+    hintStatus = "Letter";
+  } else if (hintTimeUsed) {
+    hintStatus = "Time";
+  }
+  hintUsedValue.textContent = hintStatus;
+  
+  // Create sharable result
+  let hintText = "without hints";
+  if (hintLetterUsed && hintTimeUsed) {
+    hintText = "with both hints";
+  } else if (hintLetterUsed) {
+    hintText = "with letter hint";
+  } else if (hintTimeUsed) {
+    hintText = "with time hint";
+  }
+  
+  const shareText = isWin 
+    ? `JumbleRush #${challengeNumber} 🕐 Solved in ${45 - timeLeft}s ${hintText}! 🔥 Can you beat my time? Play here: https://akashramsankar.github.io/jumble-rush/`
+    : `JumbleRush #${challengeNumber} ⏳ Time's up! ❌ I got JUMBLED today 😵‍💫 Try it here: https://akashramsankar.github.io/jumble-rush/`;
+  
+  shareResult.textContent = shareText;
+}
     
     // Copy result to clipboard
     function copyResult() {
@@ -776,7 +891,8 @@
       alert("Come back tomorrow for a new challenge!");
     });
     rulesToggle.addEventListener("click", toggleRules);
-    hintBtn.addEventListener("click", getHint);
+    document.getElementById("hint-letter-btn").addEventListener("click", getLetterHint);
+    document.getElementById("hint-time-btn").addEventListener("click", getTimeHint);
     
     // Do NOT start game automatically - wait for user to click the start button
   </script>
