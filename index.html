@@ -470,11 +470,12 @@
     
     // Dictionary for word validation (simplified for MVP)
     const dictionary = new Set([
-      ...wordList,
-      "WORLD", "HELLO", "DANCE", "APPLE", "PHONE", "CHAIR", "TABLE", "WATER", 
-      "EARTH", "MUSIC", "PIZZA", "BEACH", "MOVIE", "PARTY", "PLANT", "GHOST",
-      // Add more valid English words here
-    ]);
+  ...easyWordList,
+  ...hardWordList,
+  "WORLD", "HELLO", "DANCE", "APPLE", "PHONE", "CHAIR", "TABLE", "WATER", 
+  "EARTH", "MUSIC", "PIZZA", "BEACH", "MOVIE", "PARTY", "PLANT", "GHOST",
+  // Add more valid English words here
+]);
     
     // Game state
     let gameActive = false;
@@ -744,34 +745,38 @@ function getTimeHint() {
     
     // Submit guess
     function submitGuess() {
-      if (!gameActive) return;
-      
-      const guess = wordInput.value.trim().toUpperCase();
-      
-      // Validate guess
-      if (guess.length !== originalWord.length) {
-        showMessage(`Use all ${originalWord.length} letters!`, true);
-        applyPenalty();
-        return;
-      }
-      
-      // Check if it's a valid word
-      if (!isValidWord(guess)) {
-        showMessage("Not a valid English word!", true);
-        applyPenalty();
-        return;
-      }
-      
-      // Check if correct
-      if (isCorrectWord(guess)) {
-        endGame(true);
-      } else {
-        showMessage("Incorrect! Try again.", true);
-        applyPenalty();
-      }
-      
-      wordInput.value = "";
-    }
+  if (!gameActive) return;
+  
+  const guess = wordInput.value.trim().toUpperCase();
+  
+  // Validate guess
+  if (guess.length !== originalWord.length) {
+    showMessage(`Use all ${originalWord.length} letters!`, true);
+    applyPenalty();
+    wordInput.value = "";
+    wordInput.focus(); // Make sure the input stays focused
+    return;
+  }
+  
+  // Check if it's a valid word
+  if (!isValidWord(guess)) {
+    showMessage("Not a valid English word!", true);
+    applyPenalty();
+    wordInput.value = "";
+    wordInput.focus(); // Make sure the input stays focused
+    return;
+  }
+  
+  // Check if correct
+  if (isCorrectWord(guess)) {
+    endGame(true);
+  } else {
+    showMessage("Incorrect! Try again.", true);
+    applyPenalty();
+    wordInput.value = "";
+    wordInput.focus(); // Make sure the input stays focused
+  }
+}
     
     // Validate word against dictionary
     function isValidWord(word) {
@@ -795,26 +800,20 @@ function getTimeHint() {
     
     // Apply penalty for wrong guess
     function applyPenalty() {
-      penaltyCount++;
-      timeLeft = Math.max(1, timeLeft - 3); // Ensure at least 1 second remains
-      timerElement.textContent = timeLeft;
-    }
-    
-    // End game
-    function endGame(isWin) {
-      // Stop timers
-      clearInterval(timerInterval);
-      clearInterval(shuffleInterval);
-      
-      // Update game state
-      gameActive = false;
-      wordInput.disabled = true;
-      submitBtn.disabled = true;
-      hintBtn.disabled = true;
-      
-      // Show result
-      displayResult(isWin);
-    }
+  penaltyCount++;
+  timeLeft = Math.max(1, timeLeft - 3); // Ensure at least 1 second remains
+  timerElement.textContent = timeLeft;
+  
+  // Make sure the timer reflects the new time
+  if (timeLeft <= 10) {
+    timerElement.classList.add("warning");
+  }
+  
+  // Don't end the game here unless time is actually up
+  if (timeLeft <= 0) {
+    endGame(false);
+  }
+}
     
     // Display game result
     function displayResult(isWin) {
@@ -870,6 +869,32 @@ function getTimeHint() {
           }, 2000);
         });
     }
+
+    // End game
+function endGame(isWin) {
+  gameActive = false;
+  
+  // Clear intervals
+  clearInterval(timerInterval);
+  
+  // Disable input
+  wordInput.disabled = true;
+  submitBtn.disabled = true;
+  
+  // Disable hint buttons
+  document.getElementById("hint-letter-btn").disabled = true;
+  document.getElementById("hint-time-btn").disabled = true;
+  
+  // Show result
+  if (isWin) {
+    showMessage("Congratulations! You solved the puzzle!", false);
+  } else {
+    showMessage(`Time's up! The word was "${originalWord}"`, true);
+  }
+  
+  // Display result screen
+  displayResult(isWin);
+}
     
     // Toggle rules visibility
     function toggleRules() {
