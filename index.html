@@ -15,6 +15,7 @@
       --button-disabled: #777;
       --timer-warning: #c00;
       --overlay-bg: rgba(0, 0, 0, 0.7);
+      --hint-button-bg: #666;
     }
 
     body {
@@ -102,7 +103,7 @@
 
     .game-input {
       display: flex;
-      margin-bottom: 2rem;
+      margin-bottom: 1.5rem;
       width: 100%;
     }
 
@@ -138,6 +139,31 @@
     button:disabled {
       background-color: var(--button-disabled);
       cursor: not-allowed;
+    }
+
+    .hint-section {
+      margin-bottom: 1.5rem;
+      width: 100%;
+      text-align: center;
+    }
+
+    .hint-btn {
+      background-color: var(--hint-button-bg);
+      margin-bottom: 0.5rem;
+      padding: 8px 16px;
+    }
+
+    .hint-container {
+      display: none;
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      background-color: var(--main-bg-color);
+      margin: 0.5rem auto;
+      max-width: 80%;
+    }
+
+    .hint-content {
+      font-weight: bold;
     }
 
     .message {
@@ -303,6 +329,7 @@
           <li>Letters shuffle every <strong>5 seconds</strong></li>
           <li>Each wrong guess costs you a <strong>3-second penalty</strong></li>
           <li>You must use <strong>all letters</strong> in your answer</li>
+          <li>You can use <strong>one hint</strong> (costs 5 seconds)</li>
         </ul>
       </div>
       
@@ -329,6 +356,13 @@
         <button id="submit-btn">Submit</button>
       </div>
       
+      <div class="hint-section">
+        <button id="hint-btn" class="hint-btn">Get Hint</button>
+        <div id="hint-container" class="hint-container">
+          <div id="hint-content" class="hint-content"></div>
+        </div>
+      </div>
+      
       <div class="message" id="message"></div>
       
       <div class="result-container" id="result-container">
@@ -346,6 +380,10 @@
           <div class="stat">
             <div class="stat-value" id="penalties-value">--</div>
             <div class="stat-label">Penalties</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="hint-used-value">--</div>
+            <div class="stat-label">Hint</div>
           </div>
         </div>
         
@@ -368,6 +406,7 @@
             <li>Letters shuffle every <strong>5 seconds</strong></li>
             <li>Each wrong guess costs you a <strong>3-second penalty</strong></li>
             <li>You must use <strong>all letters</strong> in your answer</li>
+            <li>You can use <strong>one hint</strong> (costs 5 seconds)</li>
           </ul>
         </div>
       </div>
@@ -398,7 +437,7 @@
     ]);
     
     // Game state
-    let gameActive = false; // Changed to false initially
+    let gameActive = false;
     let timeLeft = 30;
     let shuffleInterval;
     let timerInterval;
@@ -407,6 +446,8 @@
     let scrambledLetters = [];
     let penaltyCount = 0;
     let challengeNumber = 0;
+    let hintUsed = false;
+    let hintTimeDeduction = 5; // seconds deducted for using a hint
     
     // DOM elements
     const welcomeOverlay = document.getElementById("welcome-overlay");
@@ -422,12 +463,16 @@
     const timeValue = document.getElementById("time-value");
     const wordValue = document.getElementById("word-value");
     const penaltiesValue = document.getElementById("penalties-value");
+    const hintUsedValue = document.getElementById("hint-used-value");
     const shareResult = document.getElementById("share-result");
     const copyBtn = document.getElementById("copy-btn");
     const playAgainBtn = document.getElementById("play-again-btn");
     const rulesToggle = document.getElementById("rules-toggle");
     const rulesContent = document.getElementById("rules-content");
     const challengeNumberElement = document.getElementById("challenge-number");
+    const hintBtn = document.getElementById("hint-btn");
+    const hintContainer = document.getElementById("hint-container");
+    const hintContent = document.getElementById("hint-content");
     
     // Initialize game
     function initGame() {
@@ -435,19 +480,36 @@
       timeLeft = 30;
       nextShuffleTime = 5;
       penaltyCount = 0;
+      hintUsed = false;
       messageElement.textContent = "";
       messageElement.classList.remove("error");
       resultContainer.style.display = "none";
+      
+      // Reset hint button and container
+      hintBtn.disabled = false;
+      hintBtn.textContent = "Get Hint";
+      hintContainer.style.display = "none";
+      hintContent.textContent = "";
       
       // Set challenge number based on date
       const today = new Date();
       challengeNumber = Math.floor((today - new Date(today.getFullYear(), 0, 1)) / 86400000) + 1;
       challengeNumberElement.textContent = `Challenge #${challengeNumber}`;
       
-      // Select word using seeded random based on date
+      // Select word using seeded random based on date, avoiding repeated words
+      let attempts = 0;
+      const maxAttempts = 10; // Prevent infinite loops
+      let selectedWord;
       const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
-      const randomIndex = seededRandom(seed, 0, wordList.length - 1);
-      originalWord = wordList[randomIndex];
+      
+      do {
+        const randomIndex = seededRandom(seed + attempts, 0, wordList.length - 1);
+        selectedWord = wordList[randomIndex];
+        attempts++;
+      } while (hasWordBeenUsed(selectedWord) && attempts < maxAttempts);
+      
+      originalWord = selectedWord;
+      markWordAsUsed(originalWord);
       
       // Scramble letters and display
       scrambledLetters = scrambleWord(originalWord);
@@ -473,6 +535,45 @@
       
       // Initialize the game
       initGame();
+    }
+    
+    // Function to check if a word has been used before
+    function hasWordBeenUsed(word) {
+      const usedWords = JSON.parse(localStorage.getItem('jumbleRushUsedWords') || '[]');
+      return usedWords.includes(word);
+    }
+    
+    // Function to mark a word as used
+    function markWordAsUsed(word) {
+      const usedWords = JSON.parse(localStorage.getItem('jumbleRushUsedWords') || '[]');
+      
+      // Keep only the most recent 100 words to prevent localStorage from getting too large
+      if (usedWords.length >= 100) {
+        usedWords.shift(); // Remove oldest word
+      }
+      
+      usedWords.push(word);
+      localStorage.setItem('jumbleRushUsedWords', JSON.stringify(usedWords));
+    }
+    
+    // Function to get a hint
+    function getHint() {
+      if (hintUsed || !gameActive) return;
+      
+      // Apply time penalty for using a hint
+      timeLeft = Math.max(1, timeLeft - hintTimeDeduction);
+      timerElement.textContent = timeLeft;
+      
+      hintUsed = true;
+      hintBtn.disabled = true;
+      hintBtn.textContent = "Hint Used";
+      
+      // Show the first letter as the hint
+      const hintText = `The word begins with "${originalWord[0]}"`;
+      
+      // Display the hint
+      hintContainer.style.display = "block";
+      hintContent.textContent = hintText;
     }
     
     // Seeded random number generator
@@ -610,6 +711,7 @@
       gameActive = false;
       wordInput.disabled = true;
       submitBtn.disabled = true;
+      hintBtn.disabled = true;
       
       // Show result
       displayResult(isWin);
@@ -630,11 +732,15 @@
       
       wordValue.textContent = originalWord;
       penaltiesValue.textContent = penaltyCount;
+      hintUsedValue.textContent = hintUsed ? "Yes" : "No";
+      
+      // Update the shareText to include hint information
+      const hintText = hintUsed ? 'with hint' : 'without hint';
       
       // Create sharable result
       const shareText = isWin 
-        ? `JumbleRush #${challengeNumber} 🕐 Solved in ${30 - timeLeft}s! 🔥 Can you beat my time? Play here: [link]`
-        : `JumbleRush #${challengeNumber} ⏳ Time's up! ❌ I got JUMBLED today 😵‍💫 Try it here: [link]`;
+        ? `JumbleRush #${challengeNumber} 🕐 Solved in ${30 - timeLeft}s ${hintText}! 🔥 Can you beat my time? Play here: https://akashramsankar.github.io/jumble-rush/`
+        : `JumbleRush #${challengeNumber} ⏳ Time's up! ❌ I got JUMBLED today 😵‍💫 Try it here: https://akashramsankar.github.io/jumble-rush/`;
       
       shareResult.textContent = shareText;
     }
@@ -670,6 +776,7 @@
       alert("Come back tomorrow for a new challenge!");
     });
     rulesToggle.addEventListener("click", toggleRules);
+    hintBtn.addEventListener("click", getHint);
     
     // Do NOT start game automatically - wait for user to click the start button
   </script>
