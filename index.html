@@ -658,11 +658,28 @@
 function deterministicScramble(word, seed) {
   const letters = word.split("");
   
-  // Use Fisher-Yates shuffle with deterministic random
-  for (let i = letters.length - 1; i > 0; i--) {
-    const j = deterministicRandom(seed + i, 0, i);
-    [letters[i], letters[j]] = [letters[j], letters[i]];
-  }
+  // Ensure scrambled version is different from original word
+  let scrambledLetters;
+  let attempts = 0;
+  
+  do {
+    // Use Fisher-Yates shuffle with deterministic random
+    for (let i = letters.length - 1; i > 0; i--) {
+      const j = deterministicRandom(seed + i + attempts, 0, i);
+      [letters[i], letters[j]] = [letters[j], letters[i]];
+    }
+    
+    scrambledLetters = letters.join('');
+    attempts++;
+    
+    // Prevent infinite loop, max 10 attempts
+    if (attempts > 10) {
+      // If can't find a unique scramble, use a completely random shuffle
+      scrambledLetters = letters.sort(() => deterministicRandom(seed, -1, 1));
+      break;
+    }
+  } while (scrambledLetters === word);
+  
   return letters;
 }
     
